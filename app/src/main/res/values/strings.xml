@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">CameraChipmonk</string>
+
+    <string name="camera_permission_rationale">Since this is a camera app, we need permission to use the camera.</string>
+    <string name="btn_shoot">Shoot</string>
+
+
+</resources>
