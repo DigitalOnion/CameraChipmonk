@@ -1,46 +1,96 @@
 package com.magicleap.camerachipmonk;
 
-import android.Manifest;
-import android.app.AlertDialog;
-import android.content.Context;
-import android.content.pm.PackageManager;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraDevice;
 import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Size;
 import android.view.TextureView;
 import android.view.View;
+import android.widget.Toast;
+
+import static android.hardware.camera2.CameraMetadata.LENS_FACING_FRONT;
 
 public class MainActivity extends AppCompatActivity
-        implements CameraView {
+        implements MainView, TextureView.SurfaceTextureListener {
 
     private CameraPresenter presenter = null;
 
-    private TextureView texture = null;
+    private TextureView textureView = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        textureView = findViewById(R.id.textureView);
+        textureView.setSurfaceTextureListener(this);
+
         presenter = new CameraPresenter(this);
-        texture = findViewById(R.id.texture);
-        //presenter.openCamera();
+
     }
 
     public void onClickBtnShoot(View viewButton) {
-        presenter.openCamera(0);
+
     }
 
     @Override
-    public Context getContext() {
-        return this;
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case CameraPresenter.MY_PERMISSION_REQUEST_CAMERA:
+                presenter.openCamera(this, LENS_FACING_FRONT);
+                break;
+            default:
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
     }
 
     @Override
-    public AppCompatActivity getActivity() {
-        return this;
+    public void onCameraDeviceReady(CameraDevice cameraDevice) {
+
     }
+
+    @Override
+    public void onCameraError(int errorId) {
+        switch (errorId) {
+            case CameraPresenter.ERROR_ID_INVALID_SIZE:
+                Toast.makeText(this, R.string.error_invalid_size, Toast.LENGTH_SHORT).show();
+                break;
+        }
+    }
+
+    @Override
+    public TextureView getTextureView() {
+        textureView = findViewById(R.id.textureView);
+        return textureView;
+    }
+
+    @Override
+    public Size getPreviewSize() {
+        textureView = findViewById(R.id.textureView);
+        return new Size(textureView.getWidth(), textureView.getHeight());
+    }
+
+
+    /**
+     *  From: TextureView.SurfaceTextureListener
+     */
+
+    @Override
+    public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
+        presenter.openCamera(this, LENS_FACING_FRONT);
+    }
+
+    @Override
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int i, int i1) { /* IGNORE */ }
+
+    @Override
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+        /* TODO IMPLEMENT CASE */
+        return false;
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) { /* IGNORE */ }
 }
