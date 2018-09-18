@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     public void onClickBtnShoot(View viewButton) {
-
+        presenter.shoot();
     }
 
     @Override

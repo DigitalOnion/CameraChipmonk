@@ -45,11 +45,13 @@ public class CameraPresenter extends CameraDevice.StateCallback {
     private StreamConfigurationMap selectedConfMap = null;
     private CameraCaptureSession selectedSession = null;
     private Size[] selectedSizes = null;
-    private Surface jpgSurface = null;
+    private Surface captureSurface = null;
     private Surface previewSurface = null;
     private ImageReader imageReader = null;
     private CaptureRequest.Builder  previewRequestBuilder = null;
+    private CaptureRequest.Builder  captureRequestBuilder = null;
     private CaptureRequest previewRequest;
+    private CaptureRequest captureRequest;
 
     public CameraPresenter(MainView mainView) {
         this.mainView = mainView;
@@ -118,6 +120,21 @@ public class CameraPresenter extends CameraDevice.StateCallback {
                 MY_PERMISSION_REQUEST_CAMERA);
     }
 
+
+    /**
+     * onOpened
+     * @param cameraDevice
+     *
+     * onOpened is a method from CameraDevice.StateCallback. it delivers the cameraDevice
+     * once it is opened.
+     * in the example we do:
+     *   - choose the size
+     *   - instantiate an image reader with the size and type (JPEG)
+     *   - obtain a surface for photo shooting from the Image Reader
+     *   - obtain the surface from the TextureView for preview
+     *   - create a CaptureSession. The result from it will be delivered
+     *     at the CameraCaptureSession.StateCallback
+     */
     @Override
     public void onOpened(@NonNull CameraDevice cameraDevice) {
         // Select appropriate size from selectedSizes.
@@ -136,14 +153,14 @@ public class CameraPresenter extends CameraDevice.StateCallback {
         ImageReader reader = ImageReader.newInstance(
                 chosenSize.getWidth(), chosenSize.getHeight(),
                 ImageFormat.JPEG, MAX_IMAGES);
-        jpgSurface = reader.getSurface();
+        captureSurface = reader.getSurface();
 
         SurfaceTexture surfaceTexture = mainView.getTextureView().getSurfaceTexture();
         surfaceTexture.setDefaultBufferSize(chosenSize.getWidth(), chosenSize.getHeight());
         previewSurface = new Surface(surfaceTexture);
 
         List<Surface> surfaces = new ArrayList<>();
-        surfaces.add(jpgSurface);
+        surfaces.add(captureSurface);
         surfaces.add(previewSurface);
 
         try {
@@ -165,21 +182,29 @@ public class CameraPresenter extends CameraDevice.StateCallback {
 
     private class CaptureSessionCallback extends CameraCaptureSession.StateCallback {
 
+        /**
+         * onConfigured
+         * @param cameraCaptureSession
+         *
+         * receives the CameraCaptureSession to be configured ready to receive requests by:
+         *  - create the Preview RequestBuilder
+         *  - launch the request to the camera session. This starts showing the video on screen
+         */
         @Override
         public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
             selectedSession = cameraCaptureSession;
             try {
+                // Request for Preview - it does not need a CameraCaptureSession.CaptureCallback since the stream is only shown
                 previewRequestBuilder = cameraCaptureSession.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                 previewRequestBuilder.addTarget(previewSurface);
                 previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
 
                 previewRequest = previewRequestBuilder.build();
+                cameraCaptureSession.setRepeatingRequest(previewRequest, null, null);
 
-                cameraCaptureSession.setRepeatingRequest(previewRequest, new RepeatRequestCallback(), null);
             } catch (CameraAccessException e) {
                 e.printStackTrace();
             }
-
         }
 
         @Override
@@ -188,7 +213,22 @@ public class CameraPresenter extends CameraDevice.StateCallback {
         }
     }
 
-    public class RepeatRequestCallback extends CameraCaptureSession.CaptureCallback {
+    public void shoot() {
+        try {
+
+            // Request for Capture a still picture.
+            captureRequestBuilder = selectedSession.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            captureRequestBuilder.addTarget(captureSurface);
+            captureRequest = captureRequestBuilder.build();
+
+            // TODO... WHAT DA FRICK? CaptureRequest is not working, but previewRequest works for one single shot!!!...
+            selectedSession.capture(previewRequest, new CaptureRequestCallback(), null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public class CaptureRequestCallback extends CameraCaptureSession.CaptureCallback {
         @Override
         public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
             super.onCaptureCompleted(session, request, result);
