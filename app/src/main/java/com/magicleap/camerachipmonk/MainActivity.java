@@ -2,6 +2,7 @@ package com.magicleap.camerachipmonk;
 
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraDevice;
+import android.media.Image;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -9,6 +10,8 @@ import android.util.Size;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Toast;
+
+import java.nio.ByteBuffer;
 
 import static android.hardware.camera2.CameraMetadata.LENS_FACING_FRONT;
 
@@ -47,8 +50,12 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    public void onCameraDeviceReady(CameraDevice cameraDevice) {
-
+    public void onImageReady(Image image) {
+        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        image.close();
+        Toast.makeText(this, "I've got the image", Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -64,12 +71,6 @@ public class MainActivity extends AppCompatActivity
     public TextureView getTextureView() {
         textureView = findViewById(R.id.textureView);
         return textureView;
-    }
-
-    @Override
-    public Size getPreviewSize() {
-        textureView = findViewById(R.id.textureView);
-        return new Size(textureView.getWidth(), textureView.getHeight());
     }
 
 

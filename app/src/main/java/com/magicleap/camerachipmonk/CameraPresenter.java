@@ -13,7 +13,9 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.ImageReader;
@@ -22,9 +24,11 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Size;
 import android.view.Surface;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 
 public class CameraPresenter extends CameraDevice.StateCallback {
@@ -45,13 +49,9 @@ public class CameraPresenter extends CameraDevice.StateCallback {
     private StreamConfigurationMap selectedConfMap = null;
     private CameraCaptureSession selectedSession = null;
     private Size[] selectedSizes = null;
-    private Surface captureSurface = null;
     private Surface previewSurface = null;
     private ImageReader imageReader = null;
     private CaptureRequest.Builder  previewRequestBuilder = null;
-    private CaptureRequest.Builder  captureRequestBuilder = null;
-    private CaptureRequest previewRequest;
-    private CaptureRequest captureRequest;
 
     public CameraPresenter(MainView mainView) {
         this.mainView = mainView;
@@ -150,17 +150,22 @@ public class CameraPresenter extends CameraDevice.StateCallback {
             return;
         }
 
-        ImageReader reader = ImageReader.newInstance(
+        imageReader = ImageReader.newInstance(
                 chosenSize.getWidth(), chosenSize.getHeight(),
                 ImageFormat.JPEG, MAX_IMAGES);
-        captureSurface = reader.getSurface();
+        imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
+            @Override
+            public void onImageAvailable(ImageReader imageReader) {
+                CameraPresenter.this.mainView.onImageReady(imageReader.acquireLatestImage());
+            }
+        }, null);
 
         SurfaceTexture surfaceTexture = mainView.getTextureView().getSurfaceTexture();
         surfaceTexture.setDefaultBufferSize(chosenSize.getWidth(), chosenSize.getHeight());
         previewSurface = new Surface(surfaceTexture);
 
         List<Surface> surfaces = new ArrayList<>();
-        surfaces.add(captureSurface);
+        surfaces.add(imageReader.getSurface());
         surfaces.add(previewSurface);
 
         try {
@@ -171,14 +176,10 @@ public class CameraPresenter extends CameraDevice.StateCallback {
     }
 
     @Override
-    public void onDisconnected(@NonNull CameraDevice cameraDevice) {
-
-    }
+    public void onDisconnected(@NonNull CameraDevice cameraDevice) { }
 
     @Override
-    public void onError(@NonNull CameraDevice cameraDevice, int i) {
-
-    }
+    public void onError(@NonNull CameraDevice cameraDevice, int i) { }
 
     private class CaptureSessionCallback extends CameraCaptureSession.StateCallback {
 
@@ -199,8 +200,7 @@ public class CameraPresenter extends CameraDevice.StateCallback {
                 previewRequestBuilder.addTarget(previewSurface);
                 previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
 
-                previewRequest = previewRequestBuilder.build();
-                cameraCaptureSession.setRepeatingRequest(previewRequest, null, null);
+                cameraCaptureSession.setRepeatingRequest(previewRequestBuilder.build(), null, null);
 
             } catch (CameraAccessException e) {
                 e.printStackTrace();
@@ -215,24 +215,64 @@ public class CameraPresenter extends CameraDevice.StateCallback {
 
     public void shoot() {
         try {
+            // Lock Focus
+            previewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+            selectedSession.capture(previewRequestBuilder.build(),
+                    new CameraCaptureSession.CaptureCallback() {
+                        @Override
+                        public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+                                                       @NonNull CaptureRequest request,
+                                                       @NonNull TotalCaptureResult result) {
+                            try {
+                                CaptureRequest.Builder  captureRequestBuilder =
+                                        selectedSession.getDevice()
+                                                .createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                                captureRequestBuilder.addTarget(imageReader.getSurface());
+                                captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+
+                                selectedSession.stopRepeating();
+                                selectedSession.abortCaptures();
+                                selectedSession.capture(captureRequestBuilder.build(),
+                                        new CameraCaptureSession.CaptureCallback() {
+                                            @Override
+                                            public void onCaptureCompleted(
+                                                    @NonNull CameraCaptureSession session,
+                                                    @NonNull CaptureRequest request,
+                                                    @NonNull TotalCaptureResult result) {
+                                                //super.onCaptureCompleted(session, request, result);
+                                                // Unlock Focus when the capture is completed
+                                                try {
+                                                    previewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+                                                    selectedSession.capture(previewRequestBuilder.build(), null, null);
+                                                    selectedSession.setRepeatingRequest(previewRequestBuilder.build(), null, null);
+                                                } catch (CameraAccessException e) {
+                                                    e.printStackTrace();
+                                                }
+
+                                            }
+                                        },
+                                        null);
+
+                            } catch (CameraAccessException e) {
+                                e.printStackTrace();
+                            }
+
+                        }
+                    },
+                    null);
 
             // Request for Capture a still picture.
-            captureRequestBuilder = selectedSession.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-            captureRequestBuilder.addTarget(captureSurface);
-            captureRequest = captureRequestBuilder.build();
+//            captureRequestBuilder = selectedSession.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+//            captureRequestBuilder.addTarget(captureSurface);
+//            captureRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
+//            captureRequest = captureRequestBuilder.build();
 
-            // TODO... WHAT DA FRICK? CaptureRequest is not working, but previewRequest works for one single shot!!!...
-            selectedSession.capture(previewRequest, new CaptureRequestCallback(), null);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
     }
 
-    public class CaptureRequestCallback extends CameraCaptureSession.CaptureCallback {
-        @Override
-        public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
-            super.onCaptureCompleted(session, request, result);
-        }
-    }
+
 
 }
