@@ -15,21 +15,18 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
 import android.media.ImageReader;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Size;
 import android.view.Surface;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-
 
 public class CameraPresenter extends CameraDevice.StateCallback {
     public static final int MY_PERMISSION_REQUEST_CAMERA = 1;
@@ -156,7 +153,8 @@ public class CameraPresenter extends CameraDevice.StateCallback {
         imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
             @Override
             public void onImageAvailable(ImageReader imageReader) {
-                CameraPresenter.this.mainView.onImageReady(imageReader.acquireLatestImage());
+                Image image = imageReader.acquireLatestImage();
+                CameraPresenter.this.mainView.onImageReady(image);
             }
         }, null);
 
@@ -216,6 +214,8 @@ public class CameraPresenter extends CameraDevice.StateCallback {
     public void shoot() {
         try {
             // Lock Focus
+            previewRequestBuilder = selectedSession.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            previewRequestBuilder.addTarget(previewSurface);
             previewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
             selectedSession.capture(previewRequestBuilder.build(),
                     new CameraCaptureSession.CaptureCallback() {
@@ -245,6 +245,8 @@ public class CameraPresenter extends CameraDevice.StateCallback {
                                                 try {
                                                     previewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
                                                     selectedSession.capture(previewRequestBuilder.build(), null, null);
+
+                                                    // restart the preview
                                                     selectedSession.setRepeatingRequest(previewRequestBuilder.build(), null, null);
                                                 } catch (CameraAccessException e) {
                                                     e.printStackTrace();
@@ -261,12 +263,6 @@ public class CameraPresenter extends CameraDevice.StateCallback {
                         }
                     },
                     null);
-
-            // Request for Capture a still picture.
-//            captureRequestBuilder = selectedSession.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-//            captureRequestBuilder.addTarget(captureSurface);
-//            captureRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
-//            captureRequest = captureRequestBuilder.build();
 
         } catch (CameraAccessException e) {
             e.printStackTrace();

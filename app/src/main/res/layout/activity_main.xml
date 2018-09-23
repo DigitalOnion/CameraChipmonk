@@ -16,8 +16,23 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintHeight_percent="0.1"
-        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@id/btn_paste_clipboard"
+        />
+
+    <ImageButton
+        android:id="@+id/btn_paste_clipboard"
+        android:onClick="onClickBtnClipboard"
+        android:src="@drawable/ic_content_copy"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@android:color/transparent"
+        app:layout_constraintTop_toTopOf="@id/ip_info"
+        app:layout_constraintBottom_toBottomOf="@id/ip_info"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintLeft_toRightOf="@id/ip_info"
+        app:layout_constraintWidth_percent="0.13"
         />
 
     <TextureView
@@ -49,6 +64,16 @@
         app:layout_constraintTop_toBottomOf="@id/image_guideline"
         app:layout_constraintBottom_toBottomOf="parent"
         >
+
+        <ImageView
+            android:id="@+id/test_image"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintLeft_toLeftOf="@id/btn_shoot"
+            app:layout_constraintRight_toRightOf="@id/btn_shoot"
+            app:layout_constraintBottom_toTopOf="@id/btn_shoot"
+            app:layout_constraintTop_toTopOf="parent"
+            />
 
         <Button
             android:id="@+id/btn_shoot"

@@ -72,17 +72,14 @@ public class HttpServerThread extends Thread {
         return UNKNOWN_ADDRESS;
     }
 
-    private Socket currentSocket = null;
-
     @Override
     public void run() {
-        currentSocket = null;
         try {
             httpServerSocket = new ServerSocket(HttpServerPORT);
             hostCallback.onIpAddressKnown(getIpAddress());
 
             while(true){
-                currentSocket = httpServerSocket.accept();
+                Socket currentSocket = httpServerSocket.accept();
 
                 BufferedReader is = new BufferedReader(new InputStreamReader(currentSocket.getInputStream()));
                 String httpRequest = is.readLine();
@@ -99,40 +96,40 @@ public class HttpServerThread extends Thread {
         }
     }
 
-    public void generateHttpResponse(Image image) {
+    public void generateHttpResponse(Image image, Socket socket) {
         HttpResponseThread httpResponseThread = null;
 
-        if(currentSocket!=null && image != null) {
+        if(socket != null && image != null) {
             httpResponseThread =
                     new HttpResponseThread(
                             hostCallback,
-                            currentSocket);
+                            socket);
             httpResponseThread.setImage(image);
             httpResponseThread.start();
         }
     }
 
-    public void generateHttpResponse(String message) {
+    public void generateHttpResponse(String message, Socket socket) {
         HttpResponseThread httpResponseThread = null;
 
-        if(currentSocket!=null && message != null) {
+        if(socket != null && message != null) {
             httpResponseThread =
                     new HttpResponseThread(
                             hostCallback,
-                            currentSocket);
+                            socket);
             httpResponseThread.setMessage(message);
             httpResponseThread.start();
         }
     }
 
-    public void generateHttpResponse(Uri uri) {
+    public void generateHttpResponse(Uri uri, Socket socket) {
         HttpResponseThread httpResponseThread = null;
 
-        if(currentSocket!=null && uri != null) {
+        if(socket != null && uri != null) {
             httpResponseThread =
                     new HttpResponseThread(
                             hostCallback,
-                            currentSocket);
+                            socket);
             httpResponseThread.setUri(uri);
             httpResponseThread.start();
         }

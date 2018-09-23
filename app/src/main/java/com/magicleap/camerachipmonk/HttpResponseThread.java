@@ -131,10 +131,9 @@ class HttpResponseThread extends Thread {
         try {
 
             ByteBuffer buffer = image.getPlanes()[0].getBuffer(); // this is the JPEG compressed data
-            int total = buffer.remaining();
+            int total = buffer.capacity(); // .remaining();
             byte[] bytes = new byte[total];
             buffer.get(bytes);
-            image.close();
 
             OutputStream os = socket.getOutputStream();
             String s = "HTTP/1.0 200" + "\r\n" +
@@ -143,11 +142,11 @@ class HttpResponseThread extends Thread {
                     "\r\n";
             os.write(s.getBytes());
             os.write(bytes);
-            os.flush();
             os.write('\r');
             os.write('\n');
             os.flush();
             os.close();
+            image.close();
 
         } catch ( NullPointerException | IOException e) {
             e.printStackTrace();

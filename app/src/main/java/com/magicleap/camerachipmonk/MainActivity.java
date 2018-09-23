@@ -1,15 +1,21 @@
 package com.magicleap.camerachipmonk;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ContentResolver;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraDevice;
 import android.media.Image;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.view.TextureView;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,6 +28,7 @@ public class MainActivity extends AppCompatActivity
         implements MainView, HostCallback, TextureView.SurfaceTextureListener {
 
     private HttpServerThread httpServerThread = null;
+    private Socket responseSocket;
 
     private CameraPresenter presenter = null;
     private TextureView textureView = null;
@@ -55,6 +62,14 @@ public class MainActivity extends AppCompatActivity
         httpServerThread.close();
     }
 
+    public static final String HTTP_ADDRESS_CLIP = "HTTP_ADDRESS_CLIPBOARD";
+    public void onClickBtnClipboard(View view) {
+        CharSequence address = ipInfo.getText();
+        ClipboardManager clipManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText(HTTP_ADDRESS_CLIP, address);
+        clipManager.setPrimaryClip(clip);
+    }
+
     public void onClickBtnShoot(View viewButton) {
         presenter.shoot();
     }
@@ -72,14 +87,17 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onImageReady(Image image) {
-        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-        byte[] bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
-        image.close();
-
-        httpServerThread.generateHttpResponse(image);
-
         Toast.makeText(this, "I've got the image", Toast.LENGTH_SHORT).show();
+
+//        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+//        byte[] bytes = new byte[buffer.capacity()];
+//        buffer.get(bytes);
+//        Bitmap bitmapImage = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+//        ImageView imageView = findViewById(R.id.test_image);
+//
+//        imageView.setImageBitmap(bitmapImage);
+
+        httpServerThread.generateHttpResponse(image, responseSocket);
     }
 
     @Override
@@ -90,6 +108,7 @@ public class MainActivity extends AppCompatActivity
                 break;
         }
     }
+
 
     @Override
     public TextureView getTextureView() {
@@ -138,8 +157,14 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    public void onHttpRequestReceived(Socket socket) {
-        presenter.shoot();
+    public void onHttpRequestReceived(final Socket socket) {
+        responseSocket = socket;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                presenter.shoot();
+            }
+        });
     }
 
     @Override
