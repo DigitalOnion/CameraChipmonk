@@ -1,5 +1,6 @@
 package com.magicleap.camerachipmonk;
 
+import android.content.ContentResolver;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraDevice;
 import android.media.Image;
@@ -9,18 +10,24 @@ import android.os.Bundle;
 import android.util.Size;
 import android.view.TextureView;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import java.net.Socket;
 import java.nio.ByteBuffer;
 
 import static android.hardware.camera2.CameraMetadata.LENS_FACING_FRONT;
 
 public class MainActivity extends AppCompatActivity
-        implements MainView, TextureView.SurfaceTextureListener {
+        implements MainView, HostCallback, TextureView.SurfaceTextureListener {
+
+    private HttpServerThread httpServerThread = null;
 
     private CameraPresenter presenter = null;
-
     private TextureView textureView = null;
+
+    TextView httpLog;
+    TextView ipInfo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,8 +37,22 @@ public class MainActivity extends AppCompatActivity
         textureView = findViewById(R.id.textureView);
         textureView.setSurfaceTextureListener(this);
 
+        // Camera logic (Camera2 API)
         presenter = new CameraPresenter(this);
 
+        httpLog = findViewById(R.id.http_log);
+        ipInfo = findViewById(R.id.ip_info);
+
+        // HTTP light server - uses a ServerSocket
+        httpServerThread = new HttpServerThread();
+        httpServerThread.setHostCallback(this);
+        httpServerThread.start();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        httpServerThread.close();
     }
 
     public void onClickBtnShoot(View viewButton) {
@@ -55,6 +76,9 @@ public class MainActivity extends AppCompatActivity
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         image.close();
+
+        httpServerThread.generateHttpResponse(image);
+
         Toast.makeText(this, "I've got the image", Toast.LENGTH_SHORT).show();
     }
 
@@ -94,4 +118,32 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) { /* IGNORE */ }
+
+    /**
+     * From HostCallback
+     */
+
+    @Override
+    public void logHttpEvent(String httpEvent) {
+        String log = httpEvent + '\n' + httpLog.getText().toString();
+        if(log.length() > 1000) {
+            log = log.substring(1, 1000);
+        }
+        httpLog.setText(log);
+    }
+
+    @Override
+    public void onIpAddressKnown(String ipAddress) {
+        ipInfo.setText(ipAddress);
+    }
+
+    @Override
+    public void onHttpRequestReceived(Socket socket) {
+        presenter.shoot();
+    }
+
+    @Override
+    public ContentResolver getHostContentResolver() {
+        return this.getContentResolver();
+    }
 }
